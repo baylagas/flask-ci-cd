@@ -12,16 +12,40 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
-    
+      with:
+        submodules: 'recursive'  # If you're using submodules
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '16'
+
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.8
+        python-version: '3.8'
     
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+
+    - name: Run linting
+      run: pycodestyle --max-line-length=120 app.py tests/
     
     - name: Run tests
       run: pytest tests/
+
+    - name: Push changes to main
+      if: > 
+        github.ref == 'refs/heads/development' && 
+        github.event_name == 'pull_request' && 
+        github.event.action == 'closed' && 
+        github.event.pull_request.merged == true  && 
+        github.event.pull_request.head.sha == github.event.after
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        git checkout main
+        git merge development --no-ff -m "Merge development into main"
+        git push origin main
